@@ -1,0 +1,132 @@
+project:
+  name: spring-ai-template
+  description: 标准 Spring Boot AI 脚手架
+  version: 1.0.0
+
+stack:
+  framework: spring-boot:3.x
+  orm: mybatis
+  orm_style: xml-mapper
+  database: mysql:8
+  cache: redis
+  java: 21
+
+architecture:
+  datasource:
+    strategy: auto-failover
+    environments:
+      - dev
+      - test
+      - prod
+    fallback:
+      type: h2
+      mode: MySQL
+  cache:
+    strategy: graceful-degrade
+    redis_auto_switch: true
+
+response:
+  wrapper: Result<T>
+  fields:
+    code: integer       # 业务状态码
+    message: string
+    data: T
+    traceId: string     # 从 MDC 注入
+  success_code: 200
+  error_codes:
+    PARAM_ERROR: 400
+    BIZ_ERROR: 500
+    AUTH_ERROR: 401
+    FORBIDDEN: 403
+
+rules:
+
+  # must — 硬性约束，违反则拒绝生成代码
+  must:
+    # 接口层
+    - 所有接口必须返回 Result<T>，禁止直接返回实体类或裸 Map
+    - Controller 只做参数校验与转发，禁止包含任何业务逻辑
+    - 接口路径统一前缀 /api/v1/**
+    # 分层边界
+    - Entity 禁止出 Service 层，对外传递必须转为 VO 或 DTO
+    - Mapper 层禁止写业务逻辑，只允许数据库操作
+    - Service 禁止跨模块直接调用其他 Service 的私有方法
+    # 异常处理
+    - 自定义异常必须继承 BizException，统一由 GlobalExceptionHandler 处理
+    - 禁止在 Service 层 catch 异常后吞掉（空 catch 或仅打印）
+    # 安全与并发
+    - 并发任务必须使用项目统一线程池 TaskExecutor，禁止 new Thread()
+    - 敏感字段（密码、token）禁止出现在日志中
+    - 禁止硬编码任何密钥、密码、AK/SK
+    # 依赖管控
+    - 禁止引入 forbidden_dependencies 中列出的依赖
+
+  # should — 强烈建议，偏离时需在注释中说明原因
+  should:
+    # 注释规范
+    - 类和 public 方法必须有 Javadoc，说明职责与参数含义
+    - 复杂业务逻辑关键分支必须写行内注释
+    # 日志规范
+    - 日志必须包含 traceId（通过 MDC.get("traceId") 注入）
+    - Service 入口和异常分支必须打印 INFO / ERROR 日志
+    # 数据源与缓存
+    - MySQL 不可用时自动切换至 H2，并记录告警日志
+    - Redis 不可用时自动降级为无缓存模式
+    # 测试
+    - 新增 Service 方法应覆盖核心路径的单元测试（JUnit5 + Mockito）
+    - 参数校验应使用 @Valid + BindingResult，不要在 Service 手写非空判断
+    # 对象转换
+    - Entity → VO/DTO 的转换应统一使用 MapStruct，不要手写 setter
+
+  # avoid — 风格偏好，有充分理由可例外
+  avoid:
+    - 避免字段注入（@Autowired on field），推荐构造函数注入
+    - 避免 Controller 方法超过 20 行，过长请下沉到 Service
+    - 避免 Service 方法超过 80 行，过长请拆分私有方法
+    - 避免使用 System.out.println，统一使用 SLF4J
+    - 避免在单元测试中启动 Spring 容器（@SpringBootTest），优先 Mock
+    - 避免混用多个 HTTP 客户端（统一使用 OkHttp）
+
+coding_style:
+  injection: constructor          # 禁止 field injection
+  logging: SLF4J
+  object_mapping: MapStruct
+  validation: jakarta.validation + @Valid
+  exception_hierarchy:
+    base: BizException extends RuntimeException
+    param: ParamException extends BizException
+    auth: AuthException extends BizException
+
+dependencies:
+  forbidden:
+    - cn.hutool            # 统一用 Apache Commons
+    - com.google.guava     # 非必要不引入
+    - javax.inject         # 已迁移至 jakarta
+  allowed_http_client: OkHttp   # 禁止混用
+
+testing:
+  required: true
+  framework: JUnit5 + Mockito
+  coverage_target: service_layer
+  forbidden_in_unit_test:
+    - '@SpringBootTest'           # 禁止在单元测试中启动容器
+
+ai:
+  edit_scope:
+    - src/main/java/org/xinhuamm/demo/**
+    - src/test/java/org/xinhuamm/demo/**
+  can_create_files: true          # 允许在 edit_scope 内新建文件
+  forbidden_paths:
+    - "**/application-prod*.yml"
+    - "**/application-test*.yml"
+    - "**/*.pem"
+    - "**/*.key"
+    - "**/*.p12"
+
+conventions:
+  controller_path: /api/v1/**
+  trace_id_source: MDC.get("traceId")
+  thread_pool_bean: appTaskExecutor
+  dto_suffix_convention:
+    request: XxxReqDTO
+    response: XxxRespVO

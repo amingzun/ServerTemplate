@@ -1,0 +1,128 @@
+# Spring Boot AI 脚手架模板
+
+这是一个面向生产的 Spring Boot 标准化脚手架模板，集成了统一返回、全局异常、MyBatis、Redis、日志追踪与并发示例，支持数据库三环境配置与自动降级，适合团队与 AI 协作开发。
+
+## 环境要求
+
+- Java 21
+- Gradle Wrapper（项目已内置）
+- MySQL 8+（示例库）
+- Redis 6+（可选，用于缓存示例）
+
+## 快速启动
+
+1. 准备数据库并执行初始化脚本：`src/main/resources/schema.sql`
+2. 修改 `src/main/resources/application.yml` 与 `src/main/resources/application-*.yml` 中的数据库与 Redis 连接信息
+3. 运行应用：`./gradlew bootRun`
+
+## 关键能力
+
+- 统一响应结构：`Result<T>`
+- 全局异常处理：`GlobalExceptionHandler`
+- MyBatis + XML 映射：`UserMapper.xml`
+- Redis 缓存示例：用户查询优先读缓存
+- 数据库自动切换：MySQL 不可用时自动降级为 H2
+- Redis 自动开关：`app.redis.enabled` 控制启用，探测失败自动降级
+- 统一日志与 TraceId：`TraceIdFilter` + `logback-spring.xml`
+- 并发处理示例：统一线程池 `AsyncConfig`
+
+## 示例接口
+
+- 获取用户：`GET /api/v1/user/{id}`
+- 新增用户：`POST /api/v1/user`
+- 并发示例：`GET /api/v1/concurrency/square?taskCount=5`
+
+## 代码包目录
+
+```
+org.xinhuamm.demo
+├── controller      # 控制层（对外接口）
+├── service         # 业务逻辑层
+├── service.impl
+├── repository      # 数据访问层（MyBatis）
+├── entity          # 数据库实体
+├── dto             # 入参对象
+├── vo              # 返回对象
+├── config          # 配置类
+├── common
+│   ├── response    # 统一返回结构
+│   ├── exception   # 全局异常
+│   └── util        # 工具类
+└── DemoApplication
+```
+
+## 代码架构图
+
+```mermaid
+graph TD
+  A["Controller 层"] --> B["Service 接口"]
+  B --> C["Service 实现"]
+  C --> D["Repository (MyBatis)"]
+  D --> E["MySQL / H2"]
+  C --> F["Redis 缓存"]
+  A --> G["统一响应 Result<T>"]
+  A --> H["全局异常 GlobalExceptionHandler"]
+  A --> I["TraceIdFilter + Logback"]
+```
+
+## 运行流程图
+
+```mermaid
+sequenceDiagram
+  participant Client as 客户端
+  participant Controller as Controller
+  participant Service as Service
+  participant Repo as Repository(MyBatis)
+  participant DB as MySQL/H2
+  participant Redis as Redis
+  participant Log as TraceId/Log
+
+  Client->>Controller: HTTP 请求
+  Controller->>Log: 写入 traceId
+  Controller->>Service: 业务调用
+  Service->>Redis: 读取缓存
+  alt 缓存命中
+    Redis-->>Service: 返回数据
+  else 缓存未命中
+    Service->>Repo: 查询数据
+    Repo->>DB: SQL 查询
+    DB-->>Repo: 返回结果
+    Repo-->>Service: 返回实体
+    Service->>Redis: 回填缓存
+  end
+  Service-->>Controller: 返回 VO
+  Controller-->>Client: Result<T>
+  Controller->>Log: 记录请求结束
+```
+
+## 部署拓扑图
+
+```mermaid
+graph LR
+  U["用户/客户端"] --> GW["API Gateway/Nginx"]
+  GW --> APP["Spring Boot 服务"]
+  APP --> DB["MySQL(主)"]
+  APP --> H2["H2(降级)"]
+  APP --> R["Redis"]
+  APP --> LOG["日志系统"]
+```
+
+## 约定与规范
+
+- Controller 仅负责参数接收与响应组装
+- Service 负责业务逻辑
+- 禁止直接返回实体类
+- 统一日志必须包含 `traceId`
+- 并发任务必须使用统一线程池
+
+## 说明
+
+`ai-spec.yaml` 中包含 AI 协作规范与禁止路径约束，建议团队保持一致。
+
+## AI 协作
+
+将 `ai-spec.yaml` 内容配置到你的 AI 工具中：
+
+- Cursor：复制到 `.cursorrules`
+- Claude Project：粘贴到 Project Instructions
+- GitHub Copilot：配置为 `.github/copilot-instructions.md`

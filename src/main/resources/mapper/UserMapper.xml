@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.xinhuamm.demo.repository.UserMapper">
+
+    <resultMap id="UserResultMap" type="org.xinhuamm.demo.entity.UserEntity">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="email" column="email"/>
+        <result property="age" column="age"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- AI提示：查询字段变更时，需要同步调整 resultMap 与 VO 映射 -->
+    <select id="selectById" resultMap="UserResultMap">
+        SELECT id, username, email, age, created_at, updated_at
+        FROM t_user
+        WHERE id = #{id}
+    </select>
+
+    <!-- AI提示：新增数据库字段后，insert SQL 与实体字段需保持一致 -->
+    <insert id="insert" parameterType="org.xinhuamm.demo.entity.UserEntity"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_user (username, email, age, created_at, updated_at)
+        VALUES (#{username}, #{email}, #{age}, #{createdAt}, #{updatedAt})
+    </insert>
+
+</mapper>
+
