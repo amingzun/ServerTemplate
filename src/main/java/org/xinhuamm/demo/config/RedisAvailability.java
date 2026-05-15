@@ -3,7 +3,6 @@ package org.xinhuamm.demo.config;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -17,19 +16,19 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 public class RedisAvailability {
 
     private final ObjectProvider<RedisConnectionFactory> connectionFactoryProvider;
-
-    @Value("${app.redis.enabled:true}")
-    private boolean redisEnabled;
+    private final AppRedisProperties appRedisProperties;
 
     private volatile boolean available;
 
-    public RedisAvailability(ObjectProvider<RedisConnectionFactory> connectionFactoryProvider) {
+    public RedisAvailability(ObjectProvider<RedisConnectionFactory> connectionFactoryProvider,
+                             AppRedisProperties appRedisProperties) {
         this.connectionFactoryProvider = connectionFactoryProvider;
+        this.appRedisProperties = appRedisProperties;
     }
 
     @PostConstruct
     public void detect() {
-        if (!redisEnabled) {
+        if (!appRedisProperties.isEnabled()) {
             available = false;
             log.warn("Redis 已在配置中关闭");
             return;
@@ -58,4 +57,3 @@ public class RedisAvailability {
         return available;
     }
 }
-
