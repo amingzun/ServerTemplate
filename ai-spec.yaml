@@ -26,6 +26,9 @@ architecture:
       target: h2
   cache:
     abstraction: CacheService
+    implementations:
+      - RedisCacheService
+      - NoopCacheService
     strategy: graceful-degrade
     rule: Redis 不可用时业务必须继续走数据库主链路
 
@@ -44,6 +47,8 @@ rules:
     - Repository 只做 MyBatis 数据访问，SQL 统一写在 XML
     - 所有接口必须返回 Result<T>
     - 缓存调用必须通过 CacheService，不要在业务层直接注入 RedisTemplate
+    - app.* 配置必须优先使用 @ConfigurationProperties 绑定
+    - Redis 关闭时必须使用 NoopCacheService，不要让业务层判断缓存开关
     - 并发任务必须使用 appTaskExecutor，禁止 new Thread()
     - 禁止硬编码密钥、密码、token、AK/SK
   should:
