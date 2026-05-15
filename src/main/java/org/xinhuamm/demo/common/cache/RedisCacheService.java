@@ -3,6 +3,7 @@ package org.xinhuamm.demo.common.cache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.xinhuamm.demo.config.RedisAvailability;
@@ -17,6 +18,7 @@ import java.util.Optional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "app.redis", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class RedisCacheService implements CacheService {
 
     private final ObjectProvider<RedisTemplate<String, Object>> redisTemplateProvider;
@@ -59,4 +61,3 @@ public class RedisCacheService implements CacheService {
         }
     }
 }
-
