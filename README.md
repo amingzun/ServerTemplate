@@ -1,6 +1,6 @@
 # Spring Boot AI 脚手架模板
 
-这是一个面向生产的 Spring Boot 标准化脚手架模板，集成了统一返回、全局异常、MyBatis、Redis、日志追踪与并发示例，支持数据库三环境配置与自动降级，适合团队与 AI 协作开发。
+这是一个面向生产的 Spring Boot 标准化脚手架模板，集成了统一返回、全局异常、MyBatis、Redis 缓存抽象和日志追踪，支持数据库三环境配置与本地降级，适合团队与 AI 协作开发。
 
 ## 环境要求
 
@@ -15,22 +15,23 @@
 2. 修改 `src/main/resources/application.yml` 与 `src/main/resources/application-*.yml` 中的数据库与 Redis 连接信息
 3. 运行应用：`./gradlew bootRun`
 
+默认 profile 为 `dev`。`dev/test` 环境中 MySQL 不可用时会降级到 H2，`prod` 环境禁止降级，数据库不可用时应直接启动失败。
+
 ## 关键能力
 
 - 统一响应结构：`Result<T>`
 - 全局异常处理：`GlobalExceptionHandler`
 - MyBatis + XML 映射：`UserMapper.xml`
-- Redis 缓存示例：用户查询优先读缓存
-- 数据库自动切换：MySQL 不可用时自动降级为 H2
-- Redis 自动开关：`app.redis.enabled` 控制启用，探测失败自动降级
+- Redis 缓存抽象：业务层通过 `CacheService` 调用缓存
+- 数据库本地降级：`dev/test` 中 MySQL 不可用时自动降级为 H2
+- Redis 自动开关：`app.redis.enabled` 控制启用，探测失败自动降级为空缓存
 - 统一日志与 TraceId：`TraceIdFilter` + `logback-spring.xml`
-- 并发处理示例：统一线程池 `AsyncConfig`
+- 统一线程池配置：`AsyncConfig`
 
 ## 示例接口
 
 - 获取用户：`GET /api/v1/user/{id}`
 - 新增用户：`POST /api/v1/user`
-- 并发示例：`GET /api/v1/concurrency/square?taskCount=5`
 
 ## 代码包目录
 
@@ -45,6 +46,7 @@ org.xinhuamm.demo
 ├── vo              # 返回对象
 ├── config          # 配置类
 ├── common
+│   ├── cache       # 缓存抽象
 │   ├── response    # 统一返回结构
 │   ├── exception   # 全局异常
 │   └── util        # 工具类
@@ -59,7 +61,8 @@ graph TD
   B --> C["Service 实现"]
   C --> D["Repository (MyBatis)"]
   D --> E["MySQL / H2"]
-  C --> F["Redis 缓存"]
+  C --> F["CacheService"]
+  F --> J["Redis / 空缓存"]
   A --> G["统一响应 Result<T>"]
   A --> H["全局异常 GlobalExceptionHandler"]
   A --> I["TraceIdFilter + Logback"]
@@ -74,21 +77,25 @@ sequenceDiagram
   participant Service as Service
   participant Repo as Repository(MyBatis)
   participant DB as MySQL/H2
-  participant Redis as Redis
+  participant Cache as CacheService
+  participant Redis as Redis/空缓存
   participant Log as TraceId/Log
 
   Client->>Controller: HTTP 请求
   Controller->>Log: 写入 traceId
   Controller->>Service: 业务调用
-  Service->>Redis: 读取缓存
+  Service->>Cache: 读取缓存
+  Cache->>Redis: 尝试读取
   alt 缓存命中
-    Redis-->>Service: 返回数据
+    Redis-->>Cache: 返回数据
+    Cache-->>Service: 返回数据
   else 缓存未命中
     Service->>Repo: 查询数据
     Repo->>DB: SQL 查询
     DB-->>Repo: 返回结果
     Repo-->>Service: 返回实体
-    Service->>Redis: 回填缓存
+    Service->>Cache: 回填缓存
+    Cache->>Redis: 尝试写入
   end
   Service-->>Controller: 返回 VO
   Controller-->>Client: Result<T>
@@ -102,7 +109,7 @@ graph LR
   U["用户/客户端"] --> GW["API Gateway/Nginx"]
   GW --> APP["Spring Boot 服务"]
   APP --> DB["MySQL(主)"]
-  APP --> H2["H2(降级)"]
+  APP --> H2["H2(dev/test 降级)"]
   APP --> R["Redis"]
   APP --> LOG["日志系统"]
 ```
@@ -112,6 +119,7 @@ graph LR
 - Controller 仅负责参数接收与响应组装
 - Service 负责业务逻辑
 - 禁止直接返回实体类
+- 缓存统一通过 `CacheService`
 - 统一日志必须包含 `traceId`
 - 并发任务必须使用统一线程池
 

@@ -9,10 +9,14 @@ app:
     thread-name-prefix: app-async-
   redis:
     enabled: true
+  datasource:
+    fallback-enabled: false
 
 spring:
   application:
     name: spring-ai-template
+  profiles:
+    default: dev
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/demo_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false}
     username: ${DB_USERNAME:root}

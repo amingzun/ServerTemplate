@@ -1,6 +1,7 @@
 package org.xinhuamm.demo.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -23,11 +24,14 @@ public class DataSourceAutoSwitchConfig {
 
     private final DataSourceProperties mysqlProperties;
     private final H2DataSourceProperties h2Properties;
+    private final boolean fallbackEnabled;
 
     public DataSourceAutoSwitchConfig(DataSourceProperties mysqlProperties,
-                                      H2DataSourceProperties h2Properties) {
+                                      H2DataSourceProperties h2Properties,
+                                      @Value("${app.datasource.fallback-enabled:false}") boolean fallbackEnabled) {
         this.mysqlProperties = mysqlProperties;
         this.h2Properties = h2Properties;
+        this.fallbackEnabled = fallbackEnabled;
     }
 
     /**
@@ -42,6 +46,9 @@ public class DataSourceAutoSwitchConfig {
         if (isAvailable(mysqlDataSource)) {
             log.info("检测到 MySQL 可用，使用 MySQL 数据源");
             return mysqlDataSource;
+        }
+        if (!fallbackEnabled) {
+            throw new IllegalStateException("MySQL 不可用，且当前环境未开启 H2 降级");
         }
 
         DataSource h2DataSource = org.springframework.boot.jdbc.DataSourceBuilder.create()
@@ -70,4 +77,3 @@ public class DataSourceAutoSwitchConfig {
         populator.execute(dataSource);
     }
 }
-

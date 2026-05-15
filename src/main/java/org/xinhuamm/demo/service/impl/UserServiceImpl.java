@@ -1,11 +1,9 @@
 package org.xinhuamm.demo.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.xinhuamm.demo.common.cache.CacheService;
 import org.xinhuamm.demo.common.exception.BusinessException;
-import org.xinhuamm.demo.config.RedisAvailability;
 import org.xinhuamm.demo.dto.UserDTO;
 import org.xinhuamm.demo.entity.UserEntity;
 import org.xinhuamm.demo.repository.UserMapper;
@@ -26,8 +24,7 @@ public class UserServiceImpl implements UserService {
     private static final String USER_CACHE_KEY_PREFIX = "user:detail:";
 
     private final UserMapper userMapper;
-    private final ObjectProvider<RedisTemplate<String, Object>> redisTemplateProvider;
-    private final RedisAvailability redisAvailability;
+    private final CacheService cacheService;
 
     /**
      * 根据 ID 查询用户，优先读缓存，缓存未命中再查数据库并回填缓存。
@@ -39,12 +36,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserVO getUserById(Long id) {
         String cacheKey = USER_CACHE_KEY_PREFIX + id;
-        RedisTemplate<String, Object> redisTemplate = redisTemplateProvider.getIfAvailable();
-        if (redisAvailability.isAvailable() && redisTemplate != null) {
-            Object cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached instanceof UserVO userVO) {
-                return userVO;
-            }
+        var cachedUser = cacheService.get(cacheKey, UserVO.class);
+        if (cachedUser.isPresent()) {
+            return cachedUser.get();
         }
 
         UserEntity entity = userMapper.selectById(id);
@@ -54,9 +48,7 @@ public class UserServiceImpl implements UserService {
 
         UserVO userVO = toVO(entity);
         // AI可扩展点：此处可引入多级缓存或分布式锁防击穿
-        if (redisAvailability.isAvailable() && redisTemplate != null) {
-            redisTemplate.opsForValue().set(cacheKey, userVO, Duration.ofMinutes(30));
-        }
+        cacheService.put(cacheKey, userVO, Duration.ofMinutes(30));
         return userVO;
     }
 
@@ -83,10 +75,7 @@ public class UserServiceImpl implements UserService {
 
         UserVO userVO = toVO(entity);
         // AI可扩展点：可在此发送用户创建事件到消息队列
-        RedisTemplate<String, Object> redisTemplate = redisTemplateProvider.getIfAvailable();
-        if (redisAvailability.isAvailable() && redisTemplate != null) {
-            redisTemplate.opsForValue().set(USER_CACHE_KEY_PREFIX + entity.getId(), userVO, Duration.ofMinutes(30));
-        }
+        cacheService.put(USER_CACHE_KEY_PREFIX + entity.getId(), userVO, Duration.ofMinutes(30));
         return userVO;
     }
 

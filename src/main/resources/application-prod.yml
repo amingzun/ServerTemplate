@@ -14,3 +14,5 @@ spring:
 app:
   redis:
     enabled: true
+  datasource:
+    fallback-enabled: false

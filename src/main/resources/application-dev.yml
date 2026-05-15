@@ -15,6 +15,7 @@ app:
   redis:
     enabled: true
   datasource:
+    fallback-enabled: true
     h2:
       url: jdbc:h2:mem:demo_db;MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1
       driver-class-name: org.h2.Driver
