@@ -70,7 +70,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BusinessException.class)
     public Result<Void> handleBusinessException(BusinessException ex) {
-        return Result.error(4001, ex.getMessage());
+        return Result.error(ex.getCode(), ex.getMessage());
     }
 
     /**
@@ -85,4 +85,3 @@ public class GlobalExceptionHandler {
         return Result.error(500, "系统内部错误，请联系管理员");
     }
 }
-
